@@ -1,0 +1,55 @@
+@model OCBC.ProductModule.ViewModels.ProductInformationPartViewModel
+
+<div class="mb-3 row">
+    <!-- Product Name -->
+    <div class="col-md-6">
+        <div class="form-group">
+            <label asp-for="ProductName" class="control-label">Product Name</label>
+            <input asp-for="ProductName" class="form-control" />
+            <span asp-validation-for="ProductName" class="text-danger"></span>
+        </div>
+    </div>
+
+    <!-- Chinese Product Name -->
+    <div class="col-md-6">
+        <div class="form-group">
+            <label asp-for="ChineseProductName" class="control-label">产品名称</label>
+            <input asp-for="ChineseProductName" class="form-control" />
+            <span asp-validation-for="ChineseProductName" class="text-danger"></span>
+        </div>
+    </div>
+</div>
+
+<div class="mb-3 row">
+    <!-- Model -->
+    <div class="col-md-12">
+        <div class="form-group">
+            <label asp-for="Model" class="control-label">Model</label>
+            <input asp-for="Model" class="form-control" />
+            <span asp-validation-for="Model" class="text-danger"></span>
+        </div>
+    </div>
+</div>
+
+<div class="mb-3 row">
+    <!-- Description -->
+    <div class="col-md-12">
+        <div class="form-group">
+            <label asp-for="Description" class="control-label">Description</label>
+            <textarea asp-for="Description" class="form-control" rows="4"></textarea>
+            <span asp-validation-for="Description" class="text-danger"></span>
+        </div>
+    </div>
+</div>
+
+<style>
+    .content-part-wrapper-product-information-part {
+        display: flex;
+        gap: 10px; /* Adds space between the divs */
+    }
+
+    .content-part-wrapper-product-information-part .field-wrapper {
+        flex: 1; /* Makes all divs take up equal width */
+        max-width: 33%; /* Optionally limit each div's width to one-third */
+    }
+</style>

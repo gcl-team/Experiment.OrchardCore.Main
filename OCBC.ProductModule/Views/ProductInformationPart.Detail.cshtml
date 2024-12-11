@@ -1,0 +1,135 @@
+@model OCBC.ProductModule.ViewModels.ProductInformationPartViewModel
+
+<div class="product-information">
+    <!-- Product Header Section -->
+    <div class="product-header text-center mb-4">
+        <h1 class="product-title">Product Info: @Model.ProductName</h1>
+        <h2 class="product-subtitle text-muted">@Model.ChineseProductName</h2>
+    </div>
+
+    <!-- Product Details Section -->
+    <div class="product-details">
+        <div class="row mb-3">
+            <div class="col-md-4 text-end fw-bold">Model:</div>
+            <div class="col-md-8">@Model.Model</div>
+        </div>
+        <div class="row">
+            <div class="col-md-4 text-end fw-bold">Description:</div>
+            <div class="col-md-8">@Html.Raw(Model.Description ?? "<em>No description provided.</em>")</div>
+        </div>
+    </div>
+
+    <!-- Product Images Section -->
+    @{
+        var imagesForColumns = new[]
+        {
+            new List<string>(),
+            new List<string>(),
+            new List<string>(),
+            new List<string>()
+        };
+        var allImagePaths = (Model.ProductImage1?.Paths ?? [])
+            .Concat((Model.ProductImage2?.Paths ?? []))
+            .Concat((Model.ProductImage3?.Paths ?? []))
+            .ToArray();
+        for (var i = 0; i < allImagePaths.Length; i++)
+        {
+            var imageUrl = allImagePaths[i];
+
+            imagesForColumns[i % 4].Add(imageUrl);
+        }
+    }
+    @if (allImagePaths.Count() > 0)
+    {
+        <div class="image-gallery-row">
+            <div class="image-gallery-column">
+                @foreach(var imageUrl in imagesForColumns[0])
+                {
+                    <img src="/media/@imageUrl" style="width:100%" />
+                }
+            </div>
+            <div class="image-gallery-column">
+                @foreach(var imageUrl in imagesForColumns[1])
+                {
+                    <img src="/media/@imageUrl" style="width:100%" />
+                }
+            </div>
+            <div class="image-gallery-column">
+                @foreach(var imageUrl in imagesForColumns[2])
+                {
+                    <img src="/media/@imageUrl" style="width:100%" />
+                }
+            </div>
+            <div class="image-gallery-column">
+                @foreach(var imageUrl in imagesForColumns[3])
+                {
+                    <img src="/media/@imageUrl" style="width:100%" />
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <p class="text-muted text-center">No product images available.</p>
+    }
+</div>
+
+<style>
+    .field {
+        display: none;
+    }
+    .product-information {
+        max-width: 800px;
+        margin: 0 auto;
+        font-family: 'Arial', sans-serif;
+    }
+    .product-title {
+        font-size: 2rem;
+        font-weight: 700;
+    }
+    .product-subtitle {
+        font-size: 1.25rem;
+        font-weight: 400;
+    }
+    .product-details .row {
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #eaeaea;
+    }
+    .product-details .row:last-child {
+        border-bottom: none;
+    }
+    .image-gallery-row {
+        display: flex;
+        flex-wrap: wrap;
+        padding: 0 4px;
+    }
+
+    /* Create four equal columns that sits next to each other */
+    .image-gallery-column {
+        flex: 23%;
+        max-width: 23%;
+        padding: 0 4px;
+    }
+
+    .image-gallery-column img {
+        margin-top: 8px;
+        vertical-align: middle;
+        width: 100%;
+    }
+
+    /* Responsive layout - makes a two column-layout instead of four columns */
+    @@media screen and (max-width: 800px) {
+        .image-gallery-column {
+            flex: 50%;
+            max-width: 50%;
+        }
+    }
+
+    /* Responsive layout - makes the two columns stack on top of each other instead of next to each other */
+    @@media screen and (max-width: 600px) {
+        .image-gallery-column {
+            flex: 100%;
+            max-width: 100%;
+        }
+    }
+</style>
