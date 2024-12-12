@@ -49,7 +49,45 @@
     }
 
     .content-part-wrapper-product-information-part .field-wrapper {
-        flex: 1; /* Makes all divs take up equal width */
-        max-width: 33%; /* Optionally limit each div's width to one-third */
+        flex: 1;                 /* Each field takes up equal space */
+        max-width: 33%;          /* Ensure no field exceeds 1/3 of the container */
+        display: block;          /* Ensure proper block-level display */
+        box-sizing: border-box;  /* Ensure padding and borders don't affect width */
+        padding: 10px;
+    }
+
+    .content-part-wrapper-product-information-part {
+        display: flex;            /* Use flexbox for side-by-side layout */
+        gap: 10px;                /* Add spacing between the fields */
+        flex-wrap: wrap;          /* Allow wrapping if necessary */
+        border: 1px solid #ccc;   /* Add border for the fieldset */
+        padding: 10px;
+        position: relative;       /* Required for positioning the pseudo-elements */
+    }
+
+    /* Create a 'fieldset' around the fields using pseudo-elements */
+    .content-part-wrapper-product-information-part::before {
+        content: "";              /* Create an empty content for the pseudo-element */
+        position: absolute;
+        top: -10px;
+        left: 0;
+        right: 0;
+        bottom: 100%;
+        border-radius: 5px;
+        background: transparent;
+        padding: 10px;
+        z-index: -1;              /* Ensure the pseudo-element is behind the content */
+    }
+
+    /* Create a 'legend' label for the fieldset */
+    .content-part-wrapper-product-information-part::after {
+        content: "Product Gallery"; /* Text for the 'legend' */
+        position: absolute;
+        top: -12px;
+        left: 10px;
+        font-weight: bold;
+        border-radius: 6px;
+        background: #0d6efd;
+        padding: 0 5px;
     }
 </style>
