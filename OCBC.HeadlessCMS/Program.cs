@@ -1,3 +1,6 @@
+using System.Globalization;
+using Microsoft.AspNetCore.Localization;
+using OCBC.HeadlessCMS.Services;
 using OrchardCore.Media;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -27,6 +30,17 @@ builder.Services
     .Configure( (app, routes, services) => {
         
     });
+
+builder.Services.Configure<RequestLocalizationOptions>(options =>
+{
+    var supportedCultures = new[] { new CultureInfo("en-GB"), new CultureInfo("zh-CN") };
+
+    options.DefaultRequestCulture = new RequestCulture("en-GB");
+    options.SupportedCultures = supportedCultures;
+    options.SupportedUICultures = supportedCultures;
+});
+
+builder.Services.AddTransient<IDemoService, DemoService>();
 
 var app = builder.Build();
 

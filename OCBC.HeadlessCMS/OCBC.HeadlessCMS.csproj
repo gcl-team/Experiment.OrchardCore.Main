@@ -16,4 +16,11 @@
     <ProjectReference Include="..\OCBC.ProductModule\OCBC.ProductModule.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Localization\" />
+    <Content Include="Localization\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>
