@@ -1,0 +1,53 @@
+#: Weather summary (Controller)
+msgctxt "OCBC.HeadlessCMS.Controllers.ProductController"
+msgid "weather_Freezing"
+msgstr "寒冷"
+
+msgctxt "OCBC.HeadlessCMS.Controllers.ProductController"
+msgid "weather_Cool"
+msgstr "清爽"
+
+msgctxt "OCBC.HeadlessCMS.Controllers.ProductController"
+msgid "weather_Mild"
+msgstr "温和"
+
+msgctxt "OCBC.HeadlessCMS.Controllers.ProductController"
+msgid "weather_Warm"
+msgstr "暖和"
+
+msgctxt "OCBC.HeadlessCMS.Controllers.ProductController"
+msgid "weather_Hot"
+msgstr "炎热"
+
+msgctxt "OCBC.HeadlessCMS.Controllers.ProductController"
+msgid "weather_Scorching"
+msgstr "灼热"
+
+
+
+
+
+#: Weather summary (Service)
+msgctxt "OCBC.HeadlessCMS.Services.DemoService"
+msgid "weather_Freezing"
+msgstr "寒冷"
+
+msgctxt "OCBC.HeadlessCMS.Services.DemoService"
+msgid "weather_Cool"
+msgstr "清爽"
+
+msgctxt "OCBC.HeadlessCMS.Services.DemoService"
+msgid "weather_Mild"
+msgstr "温和"
+
+msgctxt "OCBC.HeadlessCMS.Services.DemoService"
+msgid "weather_Warm"
+msgstr "暖和"
+
+msgctxt "OCBC.HeadlessCMS.Services.DemoService"
+msgid "weather_Hot"
+msgstr "闷热"
+
+msgctxt "OCBC.HeadlessCMS.Services.DemoService"
+msgid "weather_Scorching"
+msgstr "灼热"

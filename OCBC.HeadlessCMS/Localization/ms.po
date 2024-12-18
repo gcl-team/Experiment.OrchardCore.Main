@@ -1,0 +1,53 @@
+#: Weather summary (Controller)
+msgctxt "OCBC.HeadlessCMS.Controllers.ProductController"
+msgid "weather_Freezing"
+msgstr "Membeku"
+
+msgctxt "OCBC.HeadlessCMS.Controllers.ProductController"
+msgid "weather_Cool"
+msgstr "Dingin"
+
+msgctxt "OCBC.HeadlessCMS.Controllers.ProductController"
+msgid "weather_Mild"
+msgstr "Sederhana"
+
+msgctxt "OCBC.HeadlessCMS.Controllers.ProductController"
+msgid "weather_Warm"
+msgstr "Hangat"
+
+msgctxt "OCBC.HeadlessCMS.Controllers.ProductController"
+msgid "weather_Hot"
+msgstr "Panas"
+
+msgctxt "OCBC.HeadlessCMS.Controllers.ProductController"
+msgid "weather_Scorching"
+msgstr "Membakar"
+
+
+
+
+
+#: Weather summary (Service)
+msgctxt "OCBC.HeadlessCMS.Services.DemoService"
+msgid "weather_Freezing"
+msgstr "Membeku"
+
+msgctxt "OCBC.HeadlessCMS.Services.DemoService"
+msgid "weather_Cool"
+msgstr "Dingin"
+
+msgctxt "OCBC.HeadlessCMS.Services.DemoService"
+msgid "weather_Mild"
+msgstr "Sederhana"
+
+msgctxt "OCBC.HeadlessCMS.Services.DemoService"
+msgid "weather_Warm"
+msgstr "Hangat"
+
+msgctxt "OCBC.HeadlessCMS.Services.DemoService"
+msgid "weather_Hot"
+msgstr "Panas"
+
+msgctxt "OCBC.HeadlessCMS.Services.DemoService"
+msgid "weather_Scorching"
+msgstr "Membakar"
