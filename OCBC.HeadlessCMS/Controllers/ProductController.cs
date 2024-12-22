@@ -1,8 +1,13 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Localization;
+using OCBC.HeadlessCMS.Models;
 using OCBC.HeadlessCMS.Services;
 using OrchardCore;
+using OrchardCore.AuditTrail.Services;
+using OrchardCore.AuditTrail.Services.Models;
+using OrchardCore.Contents.AuditTrail.Models;
+using OrchardCore.Users.AuditTrail.Models;
 
 namespace OCBC.HeadlessCMS.Controllers;
 
@@ -10,6 +15,7 @@ namespace OCBC.HeadlessCMS.Controllers;
 [Route("api/v1/product")]
 public class ProductController(
     IOrchardHelper orchard, 
+    IAuditTrailManager auditTrailManager,
     IStringLocalizer<ProductController> stringLocalizer,
     IDemoService demoService) : Controller
 {
@@ -58,5 +64,30 @@ public class ProductController(
     public IActionResult GetPortableObjectServiceDemoInformation()
     {
         return Ok(demoService.GetDemoTranslatedText());
+    }
+
+    [HttpGet("audit-demo/{contentItemId}")]
+    public async Task<IActionResult> GetAuditCreationDemo(string contentItemId)
+    {
+        var productInformation = await orchard.GetContentItemByIdAsync(contentItemId);
+        
+        await auditTrailManager.RecordEventAsync(
+            new AuditTrailContext<AuditTrailContentEvent>
+            (
+                name: "Published",
+                category: "Content",
+                correlationId: Guid.NewGuid().ToString(),
+                userId: "4gyfgah3k3ness5adpmffgntnc",
+                userName: "ADMIN",
+                auditTrailEventItem: new AuditTrailContentEvent
+                {
+                    ContentItem = productInformation,
+                    VersionNumber = 1,
+                    Comment = $"This is created at {DateTime.Now:yyyy-MM-dd HH:mm:ss}."
+                }
+            )
+        );
+
+        return Ok(new { Message = "Audit log entry created." });
     }
 }

@@ -39,6 +39,8 @@
                 "OrchardCore.Deployment",
                 "OrchardCore.Deployment.Remote",
                 "OrchardCore.Localization",
+                "OrchardCore.AuditTrail",
+                "OrchardCore.Users.AuditTrail",
                 "OrchardCore.Flows",
                 "OrchardCore.Indexing",
                 "OrchardCore.Layers",

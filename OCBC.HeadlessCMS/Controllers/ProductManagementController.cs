@@ -45,8 +45,31 @@ public class ProductManagementController(IContentManager contentManager) : Contr
         contentItem.Content.ProductInformationPart.Description += $" This is updated at {DateTime.Now:yyyy-MM-dd HH:mm:ss}.";
         
         await contentManager.UpdateAsync(contentItem);
+
+        var versionId = contentItem.ContentItemVersionId;
+        int version = (await contentManager.GetAllVersionsAsync(contentItemId)).Count();
             
-        return Ok();
+        return Ok(new { versionId, version });
+    }
+
+    [HttpGet("update-sample-with-version/{contentItemId}")]
+    public async Task<IActionResult> UpdateSampleProductInformationWithVersion(string contentItemId)
+    {
+        // Retrieve the content item with a draft version (creates a draft if none exists)
+        var contentItem = await contentManager.GetAsync(contentItemId, VersionOptions.DraftRequired);
+
+        // Modify the content item
+        contentItem.DisplayText += " - Updated XX";
+        contentItem.Content.ProductInformationPart.ProductName += " - Updated";
+        contentItem.Content.ProductInformationPart.Description += $" This is updated at {DateTime.Now:yyyy-MM-dd HH:mm:ss}.";
+
+        // Save the changes (new draft version is saved)
+        await contentManager.UpdateAsync(contentItem);
+
+        // (Optional) Publish the new version
+        await contentManager.PublishAsync(contentItem);
+
+        return Ok(new { DateTime.Now });
     }
 
     [HttpGet("publish-unpublish-sample/{contentItemId}")]

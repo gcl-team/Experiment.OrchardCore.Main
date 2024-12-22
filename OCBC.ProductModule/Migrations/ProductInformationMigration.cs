@@ -72,6 +72,7 @@ namespace OCBC.ProductModule.Migrations
                 .Creatable()
                 .Listable()
                 .Draftable()
+                .Versionable()
             );
 
             return 4;
