@@ -1,13 +1,15 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Localization;
-using OCBC.HeadlessCMS.Models;
 using OCBC.HeadlessCMS.Services;
 using OrchardCore;
 using OrchardCore.AuditTrail.Services;
 using OrchardCore.AuditTrail.Services.Models;
+using OrchardCore.ContentManagement;
 using OrchardCore.Contents.AuditTrail.Models;
-using OrchardCore.Users.AuditTrail.Models;
+using OrchardCore.DynamicCache;
+using OrchardCore.Environment.Cache;
 
 namespace OCBC.HeadlessCMS.Controllers;
 
@@ -15,10 +17,15 @@ namespace OCBC.HeadlessCMS.Controllers;
 [Route("api/v1/product")]
 public class ProductController(
     IOrchardHelper orchard, 
+    IMemoryCache memoryCache,
+    ISignal orchardSignal,
+    IDynamicCache dynamicCache,
     IAuditTrailManager auditTrailManager,
     IStringLocalizer<ProductController> stringLocalizer,
     IDemoService demoService) : Controller
 {
+    private const string OrchardSignalKey = "OCBC.HeadlessCMS.Controllers.ProductController.OrchardSignalKey";
+
     [HttpGet("product-info")]
     public async Task<IActionResult> GetProductInformation()
     {
@@ -90,4 +97,51 @@ public class ProductController(
 
         return Ok(new { Message = "Audit log entry created." });
     }
+
+    [HttpGet("read-cache/{contentItemId}")]
+    public async Task<IActionResult> ReadCacheDemo(string contentItemId)
+    {
+        ContentItem? productInformation;
+        if (!memoryCache.TryGetValue(contentItemId, out productInformation))
+        {
+            productInformation = await orchard.GetContentItemByIdAsync(contentItemId);
+            productInformation.DisplayText = $"Cached at {DateTime.Now:yyyy-MM-dd-HH:mm:ss}!";
+
+            memoryCache.Set(contentItemId, productInformation, orchardSignal.GetToken(OrchardSignalKey));
+        }
+
+        return Ok(productInformation);
+    }
+
+    [HttpGet("invalidate-cache/{contentItemId}")]
+    public IActionResult InvalidateCacheDemo(string contentItemId)
+    {
+        memoryCache.Remove(contentItemId);
+
+        return Ok(new { Message = $"Removed memory cache for {contentItemId}." });
+    }
+
+    [HttpGet("invalidate-cache-with-signal/{contentItemId}")]
+    public async Task<IActionResult> InvalidateCacheWithSignalDemo(string contentItemId)
+    {
+        // Raise a signal
+        await orchardSignal.SignalTokenAsync(OrchardSignalKey);
+
+        return Ok(new { Message = $"Raised signal to invalidate memory cache for {contentItemId}." });
+    }
+
+    // [HttpGet("read-dynamic-cache/{contentItemId}")]
+    // public async Task<IActionResult> ReadDynamicCacheDemo(string contentItemId)
+    // {
+    //     ContentItem? productInformation;
+    //     if (!dynamicCache.TryGetValue(contentItemId, out productInformation))
+    //     {
+    //         productInformation = await orchard.GetContentItemByIdAsync(contentItemId);
+    //         productInformation.DisplayText = $"Cached at {DateTime.Now:yyyy-MM-dd-HH:mm:ss}!";
+
+    //         memoryCache.Set(contentItemId, productInformation, orchardSignal.GetToken(OrchardSignalKey));
+    //     }
+
+    //     return Ok(productInformation);
+    // }
 }

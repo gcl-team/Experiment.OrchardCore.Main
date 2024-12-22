@@ -41,6 +41,7 @@
                 "OrchardCore.Localization",
                 "OrchardCore.AuditTrail",
                 "OrchardCore.Users.AuditTrail",
+                "OrchardCore.DynamicCache",
                 "OrchardCore.Flows",
                 "OrchardCore.Indexing",
                 "OrchardCore.Layers",
