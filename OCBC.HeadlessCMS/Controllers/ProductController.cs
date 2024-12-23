@@ -13,6 +13,7 @@ using OrchardCore.ContentManagement;
 using OrchardCore.Contents.AuditTrail.Models;
 using OrchardCore.DynamicCache;
 using OrchardCore.Environment.Cache;
+using OrchardCore.Workflows.Services;
 
 namespace OCBC.HeadlessCMS.Controllers;
 
@@ -23,6 +24,8 @@ public class ProductController(
     IMemoryCache memoryCache,
     ISignal orchardSignal,
     IDynamicCache dynamicCache,
+    IWorkflowTypeStore workflowTypeStore,
+    IWorkflowManager workflowManager,
     IAuditTrailManager auditTrailManager,
     IStringLocalizer<ProductController> stringLocalizer,
     IDemoService demoService) : Controller
@@ -171,5 +174,31 @@ public class ProductController(
 
         Response.Headers["ETag"] = Guid.NewGuid().ToString();
         return Ok(productInformation);
+    }
+
+    [HttpGet("trigger-workflow/{contentItemId}")]
+    public async Task<IActionResult> TriggerWorkflowDemo(string contentItemId)
+    {
+        var workflowTypes = await workflowTypeStore.ListAsync();
+
+        // Load the workflow definition.
+        var workflowType = await workflowTypeStore.GetAsync(52);
+
+        if (workflowType == null)
+        {
+            return BadRequest(new { Error = "Workflow not found." });
+        }
+
+        var productInformation = await orchard.GetContentItemByIdAsync(contentItemId);
+
+        var input = new Dictionary<string, object>()
+        {
+            { "ContentItem", productInformation },
+        };
+
+        // Invoke the workflow.
+        var workflowContext = await workflowManager.StartWorkflowAsync(workflowType, input: input);
+
+        return Ok(new { workflowTypes, workflowContext });
     }
 }
