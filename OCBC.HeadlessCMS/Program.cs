@@ -26,10 +26,13 @@ builder.Services
             ".json",
             ".zip",
         ]);
+        //services.AddResponseCaching();
     })
     .Configure( (app, routes, services) => {
         
     });
+
+builder.Services.AddResponseCaching();
 
 builder.Services.Configure<RequestLocalizationOptions>(options =>
 {
@@ -52,6 +55,7 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+app.UseResponseCaching();
 
 app.UseOrchardCore();
 

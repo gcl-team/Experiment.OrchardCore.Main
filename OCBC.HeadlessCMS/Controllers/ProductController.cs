@@ -1,5 +1,8 @@
 using System.Globalization;
+using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Localization;
 using OCBC.HeadlessCMS.Services;
@@ -130,18 +133,43 @@ public class ProductController(
         return Ok(new { Message = $"Raised signal to invalidate memory cache for {contentItemId}." });
     }
 
-    // [HttpGet("read-dynamic-cache/{contentItemId}")]
-    // public async Task<IActionResult> ReadDynamicCacheDemo(string contentItemId)
-    // {
-    //     ContentItem? productInformation;
-    //     if (!dynamicCache.TryGetValue(contentItemId, out productInformation))
-    //     {
-    //         productInformation = await orchard.GetContentItemByIdAsync(contentItemId);
-    //         productInformation.DisplayText = $"Cached at {DateTime.Now:yyyy-MM-dd-HH:mm:ss}!";
+    [HttpGet("read-dynamic-cache/{contentItemId}")]
+    public async Task<IActionResult> ReadDynamicCacheDemo(string contentItemId)
+    {
+        ContentItem? productInformation;
+        
+        var cachedContentBytes = await dynamicCache.GetAsync(contentItemId);
 
-    //         memoryCache.Set(contentItemId, productInformation, orchardSignal.GetToken(OrchardSignalKey));
-    //     }
+        if (cachedContentBytes == null)
+        {
+            productInformation = await orchard.GetContentItemByIdAsync(contentItemId);
+            productInformation.DisplayText = $"Dynamic Cached at {DateTime.Now:yyyy-MM-dd-HH:mm:ss}!";
 
-    //     return Ok(productInformation);
-    // }
+            var serializedContentItem = JsonSerializer.Serialize(productInformation);
+
+            await dynamicCache.SetAsync(contentItemId, Encoding.UTF8.GetBytes(serializedContentItem), 
+                new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(1)
+                }
+            );
+        } 
+        else 
+        {
+            productInformation = JsonSerializer.Deserialize<ContentItem>(Encoding.UTF8.GetString(cachedContentBytes));
+        }
+
+        return Ok(productInformation);
+    }
+
+    [HttpGet("read-traditional-cache/{contentItemId}")]
+    [ResponseCache(Duration = 60)]
+    public async Task<IActionResult> ReadTraditionalCacheDemo(string contentItemId)
+    {
+        var productInformation = await orchard.GetContentItemByIdAsync(contentItemId);
+        productInformation.DisplayText = $"Traditional Cached at {DateTime.Now:yyyy-MM-dd-HH:mm:ss}!";
+
+        Response.Headers["ETag"] = Guid.NewGuid().ToString();
+        return Ok(productInformation);
+    }
 }
