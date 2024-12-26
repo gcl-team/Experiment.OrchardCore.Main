@@ -1,6 +1,8 @@
 using System.Globalization;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
@@ -200,5 +202,43 @@ public class ProductController(
         var workflowContext = await workflowManager.StartWorkflowAsync(workflowType, input: input);
 
         return Ok(new { workflowTypes, workflowContext });
+    }
+
+    [HttpGet("get-user-authentication")]
+    public async Task<IActionResult> GetUserAuthenticationDemo()
+    {
+        bool isUserAuthenticated = HttpContext.User.Identity?.IsAuthenticated ?? false;
+    
+        var userClaims = HttpContext.User.Claims
+            .Select(c => new { c.Type, c.Value })
+            .ToList();
+
+        var roles = HttpContext.User.Claims
+            .Where(c => c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")
+            .Select(c => c.Value)
+            .ToList();
+
+        bool isAdmin = HttpContext.User.IsInRole("Administrator");
+
+        var claims = HttpContext.User.Claims
+            .Where(c => c.Type == ClaimTypes.Role) // or use the full claim type if necessary
+            .Select(c => c.Value)
+            .ToList();
+
+        return Ok(new { isUserAuthenticated, userClaims, roles, isAdmin, claims });
+    }
+
+    [Authorize(Roles = "Administrator")]
+    [HttpGet("get-admin-only")]
+    public async Task<IActionResult> GetAdminOnlyDemo()
+    {
+        return Ok();
+    }
+
+    [Authorize(Roles = "User")]
+    [HttpGet("get-user-only")]
+    public async Task<IActionResult> GetUserOnlyDemo()
+    {
+        return Ok();
     }
 }
