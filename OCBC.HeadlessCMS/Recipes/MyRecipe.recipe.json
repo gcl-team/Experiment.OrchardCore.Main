@@ -43,6 +43,7 @@
                 "OrchardCore.Users.AuditTrail",
                 "OrchardCore.DynamicCache",
                 "OrchardCore.Workflows",
+                "OrchardCore.Workflows.Http",
                 "OrchardCore.Flows",
                 "OrchardCore.Indexing",
                 "OrchardCore.Layers",
