@@ -200,5 +200,16 @@ namespace OCBC.ProductModule.Migrations
             
             return 13;
         }
+
+        public int UpdateFrom13()
+        {
+            SchemaBuilder.CreateTableAsync("MyCustomTable", table => table
+                .Column<int>("Id", col => col.PrimaryKey().Identity())
+                .Column<string>("CustomField", col => col.WithLength(255))
+                .Column<DateTime>("CreatedDate")
+            );
+            
+            return 14;
+        }
     }
 }

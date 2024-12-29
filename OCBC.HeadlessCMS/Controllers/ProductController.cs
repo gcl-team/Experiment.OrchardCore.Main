@@ -9,6 +9,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Localization;
 using OCBC.HeadlessCMS.Services;
 using OrchardCore;
+using YesSql;
 using OrchardCore.AuditTrail.Services;
 using OrchardCore.AuditTrail.Services.Models;
 using OrchardCore.ContentManagement;
@@ -16,13 +17,15 @@ using OrchardCore.Contents.AuditTrail.Models;
 using OrchardCore.DynamicCache;
 using OrchardCore.Environment.Cache;
 using OrchardCore.Workflows.Services;
+using OCBC.ProductModule.Models;
 
 namespace OCBC.HeadlessCMS.Controllers;
 
 [ApiController]
 [Route("api/v1/product")]
 public class ProductController(
-    IOrchardHelper orchard, 
+    IOrchardHelper orchard,
+    YesSql.ISession session,
     IMemoryCache memoryCache,
     ISignal orchardSignal,
     IDynamicCache dynamicCache,
@@ -239,6 +242,29 @@ public class ProductController(
     [HttpGet("get-user-only")]
     public async Task<IActionResult> GetUserOnlyDemo()
     {
+        return Ok();
+    }
+
+    [HttpGet("get-yessql-query-result")]
+    public async Task<IActionResult> GetYesSqlQueryResultDemo()
+    {
+        var result = await session.Query<MyCustomTable>().ListAsync();
+       
+        return Ok(result);
+    }
+
+    [HttpGet("create-yessql-query-result/{customField}")]
+    public async Task<IActionResult> CreateYesSqlQueryResultDemo(string customField)
+    {
+        var newEntry = new MyCustomTable
+        {
+            CustomField = customField,
+            CreatedDate = DateTime.Now,
+        };
+
+        await session.SaveAsync(newEntry);
+        await session.SaveChangesAsync();
+       
         return Ok();
     }
 }
