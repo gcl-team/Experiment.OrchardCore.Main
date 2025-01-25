@@ -45,6 +45,7 @@
                 "OrchardCore.Workflows",
                 "OrchardCore.Workflows.Http",
                 "OrchardCore.Flows",
+                "OrchardCore.Media.AmazonS3",
                 "OrchardCore.Indexing",
                 "OrchardCore.Layers",
                 "OrchardCore.Lists",
