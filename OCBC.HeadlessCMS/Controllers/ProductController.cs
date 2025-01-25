@@ -18,6 +18,7 @@ using OrchardCore.DynamicCache;
 using OrchardCore.Environment.Cache;
 using OrchardCore.Workflows.Services;
 using OCBC.ProductModule.Models;
+using OrchardCore.Media;
 
 namespace OCBC.HeadlessCMS.Controllers;
 
@@ -25,6 +26,7 @@ namespace OCBC.HeadlessCMS.Controllers;
 [Route("api/v1/product")]
 public class ProductController(
     IOrchardHelper orchard,
+    IMediaFileStore mediaFileStore,
     YesSql.ISession session,
     IMemoryCache memoryCache,
     ISignal orchardSignal,
@@ -264,7 +266,13 @@ public class ProductController(
 
         await session.SaveAsync(newEntry);
         await session.SaveChangesAsync();
-       
+        
         return Ok();
+    }
+
+    [HttpGet("get-media-cdn")]
+    public async Task<IActionResult> GetMediaCdn()
+    {
+        return Ok(mediaFileStore.MapPathToPublicUrl("/15-autumn-in-japan-body.jpg"));
     }
 }

@@ -9,23 +9,44 @@ builder.Services
     .AddOrchardCms()
     // Orchard Specific Pipeline
     .ConfigureServices( services => {
-        services.PostConfigure<MediaOptions>(o => o.AllowedFileExtensions = [
-            // Images
-            ".jpg",
-            ".jpeg",
-            ".png",
-            ".webp",
-            ".heic",
+        // services.PostConfigure<MediaOptions>(o => o.AllowedFileExtensions = [
+        //     // Images
+        //     ".jpg",
+        //     ".jpeg",
+        //     ".png",
+        //     ".webp",
+        //     ".heic",
 
-            // Documents
-            ".pdf",
-            ".xls",
-            ".xlsx",
+        //     // Documents
+        //     ".pdf",
+        //     ".xls",
+        //     ".xlsx",
 
-            // Other
-            ".json",
-            ".zip",
-        ]);
+        //     // Other
+        //     ".json",
+        //     ".zip",
+        // ]);
+        services.PostConfigure<MediaOptions>(o => {
+            o.AllowedFileExtensions = [
+                // Images
+                ".jpg",
+                ".jpeg",
+                ".png",
+                ".webp",
+                ".heic",
+
+                // Documents
+                ".pdf",
+                ".xls",
+                ".xlsx",
+
+                // Other
+                ".json",
+                ".zip",
+            ];
+
+            o.CdnBaseUrl = "https://ocbc-cdn-demo.com";
+        });
         //services.AddResponseCaching();
     })
     .Configure( (app, routes, services) => {
