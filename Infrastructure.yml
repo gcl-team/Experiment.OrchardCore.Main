@@ -1,0 +1,19 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Infrastructure for Orchard Core CMS
+
+Parameters:
+  internalDnsName:
+    Type: String
+    Default: cld-orchard-core
+    Description: The service internal DNS value.
+  cmsDBName:
+    Type: String
+    Default: orchardcorecmsdb
+    Description: The name of the database to create.
+  cmsDbMasterUsername:
+    Type: String
+    Default: orchardcoreroot
+  cmsHostname:
+    Type: String
+    Default: orchardcms
+
