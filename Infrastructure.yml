@@ -7,14 +7,6 @@ Parameters:
     Description: "VPC CIDR Block"
     Default: 10.0.0.0/16
     AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
-  PublicSubnetMask:
-    Type: Number
-    Default: 22
-    Description: "The subnet mask for public subnets"
-  PrivateSubnetMask:
-    Type: Number
-    Default: 22
-    Description: "The subnet mask for private subnets"
   ApiGatewayStageName:
     Type: String
     Default: "production"
@@ -33,9 +25,374 @@ Parameters:
   CmsDbMasterUsername:
     Type: String
     Default: orchardcoreroot
+  HostedZoneId:
+    Type: String
+    Default: '' # To be updated by you
+  HostedZoneName:
+    Type: String
+    Default: '' # To be updated by you
   CmsHostname:
     Type: String
     Default: orchardcms
   OrchardCoreImage:
     Type: String
-    Default: 
+    Default: '' # To be updated by you
+
+Resources:
+  # Unit 01: IAM Role
+  iamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-ecs"
+      Path: !Sub "/${AWS::StackName}/"
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+  # Unit 02: CloudWatch Log Group
+  ecsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/ecs/${ServiceName}-log-group"
+      RetentionInDays: 3
+      Tags:
+        - Key: Stack
+          Value: !Ref AWS::StackName
+
+  ecsLoggingPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub "${AWS::StackName}-cloudwatch-logs-policy"
+      Roles:
+        - !Ref iamRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource:
+              - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/ecs/${ServiceName}-log-group/*"
+
+  # Unit 03: S3 Bucket
+  mediaContentBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Join
+        - '-'
+        - - !Ref ServiceName
+          - !Ref AWS::Region
+          - !Ref AWS::AccountId
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerPreferred
+      Tags:
+        - Key: Stack
+          Value: !Ref AWS::StackName
+
+  mediaContentBucketPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub "${mediaContentBucket}-s3-policy"
+      Roles:
+        - !Ref iamRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:ListBucket
+            Resource: !GetAtt mediaContentBucket.Arn
+          - Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:GetObject
+            Resource: !Join ["/", [!GetAtt mediaContentBucket.Arn, "*"]]
+
+  # Unit 04: Aurora Database Cluster
+  cmsDBClusterParameterGroup:
+    Type: AWS::RDS::DBClusterParameterGroup
+    Properties:
+      Description: "Aurora Provisioned Postgres DB Cluster Parameter Group"
+      Family: aurora-postgresql16
+      Parameters:
+        timezone: UTC  # Ensures consistent timestamps
+        rds.force_ssl: 1  # Enforce SSL for security
+
+  cmsDatabaseCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      BackupRetentionPeriod: 7  # 7 days of backup retention
+      DatabaseName: !Ref CmsDBName
+      DBClusterIdentifier: !Ref AWS::StackName
+      DBClusterParameterGroupName: !Ref cmsDBClusterParameterGroup
+      DeletionProtection: true  # Prevent accidental deletion
+      Engine: aurora-postgresql
+      EngineMode: provisioned
+      EngineVersion: 16.1
+      MasterUsername: !Ref CmsDbMasterUsername
+      MasterUserPassword: !Sub "{{resolve:ssm-secure:/OrchardCoreCms/DbPassword:1}}"
+      DBSubnetGroupName: !Ref cmsDBSubnetGroup
+      VpcSecurityGroupIds:
+        - !GetAtt cmsDBSecurityGroup.GroupId
+      Tags:
+        - Key: Stack
+          Value: !Ref AWS::StackName
+
+  # Unit 05: Aurora Database Instance
+  cmsDBInstance:
+    Type: 'AWS::RDS::DBInstance'
+    DeletionPolicy: Retain
+    Properties:
+      DBInstanceIdentifier: !Sub "${AWS::StackName}-db-instance"
+      DBInstanceClass: db.t4g.medium
+      DBClusterIdentifier: !Ref cmsDatabaseCluster
+      DBSubnetGroupName: !Ref cmsDBSubnetGroup
+      Engine: aurora-postgresql
+      Tags:
+        - Key: Stack
+          Value: !Ref AWS::StackName
+
+  # Unit 06: Virtual Private Cloud (VPC)
+  vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      InstanceTenancy: default
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::AccountId}-${AWS::Region}-vpc"
+
+  # Unit 07: Subnets and Subnet GroupS
+  # Public Subnets
+  publicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref vpc
+      CidrBlock: 10.0.0.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::AccountId}-${AWS::Region}-public-subnet-1"
+
+  publicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref vpc
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::AccountId}-${AWS::Region}-public-subnet-2"
+
+  # Private Subnets
+  privateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref vpc
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::AccountId}-${AWS::Region}-private-subnet-1"
+
+  privateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref vpc
+      CidrBlock: 10.0.3.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::AccountId}-${AWS::Region}-private-subnet-2"
+
+  cmsDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: "Orchard Core CMS Postgres DB Subnet Group"
+      SubnetIds:
+        - !Ref privateSubnet1
+        - !Ref privateSubnet2
+      Tags:
+        - Key: Stack
+          Value: !Ref AWS::StackName
+
+  # Unit 08: Security Groups
+  cmsDBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub "${CmsDBName}-security-group"
+      GroupDescription: "Permits Access To CMS Aurora Database"
+      VpcId: !Ref vpc
+      SecurityGroupIngress:
+      - CidrIp: !GetAtt privateSubnet1.CidrBlock
+        IpProtocol: tcp
+        FromPort: 5432
+        ToPort: 5432
+      - CidrIp: !GetAtt privateSubnet2.CidrBlock
+        IpProtocol: tcp
+        FromPort: 5432
+        ToPort: 5432
+      Tags:
+        - Key: Name
+          Value: !Sub "${CmsDBName}-security-group"
+        - Key: Stack
+          Value: !Ref AWS::StackName
+
+  # Unit 09: Elastic Load Balancing (ELB)
+  internalNlb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub "${ServiceName}-private-nlb"
+      Scheme: internal
+      Type: network
+      Subnets:
+        - !Ref privateSubnet1
+        - !Ref privateSubnet2
+      LoadBalancerAttributes:
+        - Key: deletion_protection.enabled
+          Value: "true"
+      Tags:
+        - Key: Stack
+          Value: !Ref AWS::StackName
+
+  nlbTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    DependsOn:
+      - internalNlb
+    Properties:
+      Name: !Sub "${ServiceName}-target-group"
+      Port: 80
+      Protocol: TCP
+      TargetType: instance
+      VpcId: !Ref vpc
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 10
+      Tags:
+        - Key: Stack
+          Value: !Ref AWS::StackName
+
+  internalNlbListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref internalNlb
+      Port: 80
+      Protocol: TCP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref nlbTargetGroup
+
+  # Unit 10: API Gateway
+  apiGatewayRestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub "${ServiceName}-api-gateway"
+      DisableExecuteApiEndpoint: True
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      Policy: ''
+
+  apiGatewayVpcLink:
+    Type: AWS::ApiGateway::VpcLink
+    Description: "VPC link for API Gateway of Orchard Core"
+    Properties:
+      Name: !Sub "${ServiceName}-vpc-link"
+      TargetArns:
+        - !Ref internalNlb
+
+  apiGatewayRootProxyResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref apiGatewayRestApi
+      ParentId: !GetAtt apiGatewayRestApi.RootResourceId
+      PathPart: '{proxy+}'
+    DependsOn:
+      - apiGatewayRestApi
+
+  apiGatewayRootMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      HttpMethod: ANY
+      AuthorizationType: NONE
+      ApiKeyRequired: False
+      RestApiId: !Ref apiGatewayRestApi
+      ResourceId: !GetAtt apiGatewayRestApi.RootResourceId
+      Integration:
+        ConnectionId: !Ref apiGatewayVpcLink
+        ConnectionType: VPC_LINK
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: ANY
+        Uri: !Sub "http://${internalNlb.DNSName}"
+    DependsOn:
+      - apiGatewayRootProxyResource
+
+  apiGatewayDeployment202501011048:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref apiGatewayRestApi
+    DependsOn:
+      - apiGatewayRootMethod
+  
+  apiGatewayStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: !Ref ApiGatewayStageName
+      RestApiId: !Ref apiGatewayRestApi
+      DeploymentId: !Ref apiGatewayDeployment202501011048
+      MethodSettings:
+        - ResourcePath: '/*'
+          HttpMethod: '*'
+          ThrottlingBurstLimit: 100
+          ThrottlingRateLimit: 50
+      Tags:
+        - Key: Stack
+          Value: !Ref AWS::StackName
+
+  # Unit 11: Route53 for API Gateway
+  apiGatewayCustomDomainCert:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref HostedZoneName
+      ValidationMethod: 'DNS'
+      DomainValidationOptions:
+        - DomainName: !Sub "${CmsHostname}.{HostedZoneName}"
+          HostedZoneId: !Ref HostedZoneId
+  
+  apiGatewayCustomDomainName:
+    Type: AWS::ApiGateway::DomainName
+    Properties:
+      RegionalCertificateArn: !Ref apiGatewayCustomDomainCert
+      DomainName: !Sub "${CmsHostname}.{HostedZoneName}"
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      SecurityPolicy: TLS_1_2
+
+  apiGatewayCustomDomainBasePathMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    Properties:
+      DomainName: !Ref apiGatewayCustomDomainName
+      RestApiId: !Ref apiGatewayRestApi
+      Stage: !Ref apiGatewayStage
+
+  apiGatewayCustomDomainARecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneName: !Ref HostedZoneName
+      Name: !Sub "${CmsHostname}.{HostedZoneName}"
+      Type: A
+      TTL: 300
+      AliasTarget:
+        DNSName: !GetAtt apiGatewayCustomDomainName.RegionalDomainName
+        HostedZoneId: !GetAtt apiGatewayCustomDomainName.RegionalHostedZoneId
