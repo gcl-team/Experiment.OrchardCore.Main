@@ -1,128 +1,41 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Infrastructure for Orchard Core CMS
+Description: "Infrastructure for Orchard Core CMS"
 
 Parameters:
-  internalDnsName:
+  VpcCIDR:
+    Type: String
+    Description: "VPC CIDR Block"
+    Default: 10.0.0.0/16
+    AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
+  PublicSubnetMask:
+    Type: Number
+    Default: 22
+    Description: "The subnet mask for public subnets"
+  PrivateSubnetMask:
+    Type: Number
+    Default: 22
+    Description: "The subnet mask for private subnets"
+  ApiGatewayStageName:
+    Type: String
+    Default: "production"
+    AllowedValues:
+      - production
+      - staging
+      - development
+  ServiceName:
     Type: String
     Default: cld-orchard-core
-    Description: The service internal DNS value.
-  serviceName:
-    Type: String
-    Default: cld-orchard-core
-    Description: The name of this service.
-  cmsDBName:
+    Description: "The service name"
+  CmsDBName:
     Type: String
     Default: orchardcorecmsdb
-    Description: The name of the database to create.
-  cmsDbMasterUsername:
+    Description: "The name of the database to create"
+  CmsDbMasterUsername:
     Type: String
     Default: orchardcoreroot
-  cmsHostname:
+  CmsHostname:
     Type: String
     Default: orchardcms
-  cmsImageName:
+  OrchardCoreImage:
     Type: String
-    Default: chunlindocker/experiment.orchardcore.main
-  
-
-Mappings:
-  environmentConfig:
-    dev:
-      alarmPriority: Low
-      desiredCount: 1
-      reducedLogs: "false"
-    prod:
-      alarmPriority: High
-      desiredCount: 4
-      reducedLogs: "true"
-
-Resources:
-  iamRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub "${AWS::StackName}-ecs"
-      Path: !Sub "/${AWS::StackName}/"
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service:
-                - ecs-tasks.amazonaws.com
-            Action:
-              - sts:AssumeRole
-      ManagedPolicyArns:
-        - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/CloudwatchMetrics"
-      Tags:
-        - Key: stack
-          Value: !Ref AWS::StackName
-
-  privateECSCluster:
-    Type: "AWS::ECS::Cluster"
-    Properties:
-      ClusterName: !Sub "ecs-cluster-${serviceName}"
-
-  ecsTaskDefinition:
-    Type: AWS::ECS::TaskDefinition
-    Properties:
-      Family: !Ref serviceName
-      TaskRoleArn: !GetAtt iamRole.Arn
-      ContainerDefinitions:
-        - Name: !Ref serviceName
-          Image: !Ref cmsImageName
-          LogConfiguration:
-            LogDriver: json-file
-            Options:
-              max-size: !If [ isProduction, "1g", "10m" ]
-              max-file: "1"
-              labels: !Sub "owner:${AWS::AccountId}"
-          EntryPoint: []
-          PortMappings:
-            - ContainerPort: 5000
-          Command: []
-          Cpu: 128
-          Environment:
-            - Name: UseReducedLogs
-              Value: !FindInMap [environmentConfig, !Ref accountType, "reducedLogs" ]
-          Ulimits:
-            - Name: nofile
-              HardLimit: 65536
-              SoftLimit: 65536
-          DnsServers: []
-          MountPoints: []
-          DockerSecurityOptions: []
-          Memory: 512
-          MemoryReservation: 256
-          VolumesFrom: []
-          Essential: true
-          ExtraHosts: []
-          ReadonlyRootFilesystem: false
-          DockerLabels: {}
-          Privileged: false
-
-  ecsService:
-    Type: AWS::ECS::Service
-    DependsOn:
-      - iamRole
-      - internalNlb
-      - nlbTargetGroup
-      - internalNlbListener
-    Properties:
-      Cluster: !Ref privateECSCluster
-      DeploymentConfiguration:
-        MaximumPercent: 200
-        MinimumHealthyPercent: 50
-      DesiredCount: !FindInMap [environmentConfig, !Ref accountType, "desiredCount" ]
-      LoadBalancers:
-        - ContainerName: !Ref serviceName
-          ContainerPort: 5000
-          TargetGroupArn: !Ref nlbTargetGroup
-      PlacementStrategies:
-        - Type: spread
-          Field: attribute:ecs.availability-zone
-        - Type: spread
-          Field: instanceId
-      TaskDefinition: !Ref ecsTaskDefinition
-      ServiceName: !Ref serviceName
-      Role: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS"
-  
+    Default: 
