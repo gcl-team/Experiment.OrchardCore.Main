@@ -120,7 +120,7 @@ Resources:
               - s3:GetObject
             Resource: !Join ["/", [!GetAtt mediaContentBucket.Arn, "*"]]
 
-  Unit 04: Aurora Database Cluster
+  # Unit 04: Aurora Database Cluster
   cmsDBClusterParameterGroup:
     Type: AWS::RDS::DBClusterParameterGroup
     Properties:
@@ -150,7 +150,7 @@ Resources:
         - Key: Stack
           Value: !Ref AWS::StackName
 
-  Unit 05: Aurora Database Instance
+  # Unit 05: Aurora Database Instance
   cmsDBInstance:
     Type: 'AWS::RDS::DBInstance'
     DeletionPolicy: Retain
@@ -176,7 +176,7 @@ Resources:
         - Key: Name
           Value: !Sub "${AWS::AccountId}-${AWS::Region}-vpc"
 
-  # Unit 07: Subnets and Subnet GroupS
+  # Unit 07: Subnets and Subnet Groups
   # Public Subnets
   publicSubnet1:
     Type: AWS::EC2::Subnet
@@ -503,7 +503,6 @@ Resources:
       SubnetId: !Ref privateSubnet2
       RouteTableId: !Ref vpcPrivateRouteTable
 
-
   ecsCluster:
     Type: AWS::ECS::Cluster
     Properties:
@@ -544,7 +543,7 @@ Resources:
         SecurityGroupIds:
           - !Ref ecsContainerHostSecurityGroup
         # This injected configuration file is how the EC2 instance
-        # knows which ECS cluster on your AWS account it should be joining
+        # knows which ECS cluster it should be joining
         UserData:
           Fn::Base64: !Sub |
            #!/bin/bash -xe
@@ -700,10 +699,10 @@ Resources:
       - internalNlbListener
     Properties:
       Cluster: !GetAtt ecsCluster.Arn
-      DesiredCount: 1
+      DesiredCount: 1   # For production, it should be at least 2
       DeploymentConfiguration:
-        MaximumPercent: 100
-        MinimumHealthyPercent: 50
+        MaximumPercent: 150    # For production, it can be 200
+        MinimumHealthyPercent: 100    # For production, it can be 50 (at least 1 is running)
       LoadBalancers:
         - ContainerName: !Ref ServiceName
           ContainerPort: 5000
@@ -717,3 +716,48 @@ Resources:
       ServiceName: !Ref ServiceName
       Role: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS"
       HealthCheckGracePeriodSeconds: 60
+
+  # Unit 13: CloudWatch Alarm
+  highCpuUtilizationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${AWS::StackName}-high-cpu"
+      AlarmDescription: !Sub "ECS service ${AWS::StackName}: Cpu utilization above 75%"
+      Namespace: AWS/ECS
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref ecsCluster
+        - Name: ServiceName
+          Value: !Ref ServiceName
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 5
+      Threshold: 75
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      ActionsEnabled: true
+      AlarmActions: []
+      OKActions: []
+
+  noRunningTasksAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${AWS::StackName}-no-task"
+      AlarmDescription: !Sub "ECS service ${AWS::StackName}: No running ECS tasks for more than 5 mins"
+      Namespace: AWS/ECS
+      MetricName: RunningTaskCount
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref ecsCluster
+        - Name: ServiceName
+          Value: !Ref ServiceName
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 5
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: notBreaching
+      ActionsEnabled: true
+      AlarmActions: []
+      OKActions: []
