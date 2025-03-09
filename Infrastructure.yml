@@ -27,16 +27,20 @@ Parameters:
     Default: orchardcoreroot
   HostedZoneId:
     Type: String
-    Default: '' # To be updated by you
+    Default: Z075010133HV9JBFTKEPX
   HostedZoneName:
     Type: String
-    Default: '' # To be updated by you
+    Default: chunlinprojects.com
   CmsHostname:
     Type: String
     Default: orchardcms
   OrchardCoreImage:
     Type: String
-    Default: '' # To be updated by you
+    Default: 982081087543.dkr.ecr.ap-southeast-5.amazonaws.com/gclteam/orchard-core-cms:latest
+  EcsAmi:
+    Description: The Amazon Machine Image ID used for the cluster
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id
 
 Resources:
   # Unit 01: IAM Role
@@ -116,7 +120,7 @@ Resources:
               - s3:GetObject
             Resource: !Join ["/", [!GetAtt mediaContentBucket.Arn, "*"]]
 
-  # Unit 04: Aurora Database Cluster
+  Unit 04: Aurora Database Cluster
   cmsDBClusterParameterGroup:
     Type: AWS::RDS::DBClusterParameterGroup
     Properties:
@@ -129,11 +133,11 @@ Resources:
   cmsDatabaseCluster:
     Type: AWS::RDS::DBCluster
     Properties:
-      BackupRetentionPeriod: 7  # 7 days of backup retention
+      BackupRetentionPeriod: 7
       DatabaseName: !Ref CmsDBName
       DBClusterIdentifier: !Ref AWS::StackName
       DBClusterParameterGroupName: !Ref cmsDBClusterParameterGroup
-      DeletionProtection: true  # Prevent accidental deletion
+      DeletionProtection: false  # For production, it should be true
       Engine: aurora-postgresql
       EngineMode: provisioned
       EngineVersion: 16.1
@@ -146,7 +150,7 @@ Resources:
         - Key: Stack
           Value: !Ref AWS::StackName
 
-  # Unit 05: Aurora Database Instance
+  Unit 05: Aurora Database Instance
   cmsDBInstance:
     Type: 'AWS::RDS::DBInstance'
     DeletionPolicy: Retain
@@ -260,7 +264,7 @@ Resources:
         - !Ref privateSubnet2
       LoadBalancerAttributes:
         - Key: deletion_protection.enabled
-          Value: "true"
+          Value: "false" # For production, it should be true
       Tags:
         - Key: Stack
           Value: !Ref AWS::StackName
@@ -275,6 +279,9 @@ Resources:
       Protocol: TCP
       TargetType: instance
       VpcId: !Ref vpc
+      HealthCheckProtocol: HTTP
+      HealthCheckPort: 80
+      HealthCheckPath: /health
       TargetGroupAttributes:
         - Key: deregistration_delay.timeout_seconds
           Value: 10
@@ -337,6 +344,33 @@ Resources:
     DependsOn:
       - apiGatewayRootProxyResource
 
+  apiGatewayRootProxyMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      ApiKeyRequired: False
+      RestApiId: !Ref apiGatewayRestApi
+      ResourceId: !Ref apiGatewayRootProxyResource
+      HttpMethod: ANY
+      AuthorizationType: NONE
+      RequestParameters:
+        method.request.path.proxy: True
+      Integration:
+        ConnectionId: !Ref apiGatewayVpcLink
+        ConnectionType: VPC_LINK
+        Type: HTTP_PROXY
+        RequestParameters:
+          integration.request.path.proxy: method.request.path.proxy
+        CacheKeyParameters:
+          - method.request.path.proxy
+        IntegrationHttpMethod: ANY
+        IntegrationResponses:
+          - StatusCode: 200
+            SelectionPattern: 200
+        Uri: !Sub "http://${internalNlb.DNSName}/{proxy}"
+    DependsOn:
+      - apiGatewayRootProxyResource
+      - apiGatewayVpcLink
+
   apiGatewayDeployment202501011048:
     Type: AWS::ApiGateway::Deployment
     Properties:
@@ -353,7 +387,7 @@ Resources:
       MethodSettings:
         - ResourcePath: '/*'
           HttpMethod: '*'
-          ThrottlingBurstLimit: 100
+          ThrottlingBurstLimit: 200
           ThrottlingRateLimit: 50
       Tags:
         - Key: Stack
@@ -363,17 +397,17 @@ Resources:
   apiGatewayCustomDomainCert:
     Type: AWS::CertificateManager::Certificate
     Properties:
-      DomainName: !Ref HostedZoneName
+      DomainName: !Sub "${CmsHostname}.${HostedZoneName}"
       ValidationMethod: 'DNS'
       DomainValidationOptions:
-        - DomainName: !Sub "${CmsHostname}.{HostedZoneName}"
+        - DomainName: !Sub "${CmsHostname}.${HostedZoneName}"
           HostedZoneId: !Ref HostedZoneId
   
   apiGatewayCustomDomainName:
     Type: AWS::ApiGateway::DomainName
     Properties:
       RegionalCertificateArn: !Ref apiGatewayCustomDomainCert
-      DomainName: !Sub "${CmsHostname}.{HostedZoneName}"
+      DomainName: !Sub "${CmsHostname}.${HostedZoneName}"
       EndpointConfiguration:
         Types:
           - REGIONAL
@@ -389,10 +423,297 @@ Resources:
   apiGatewayCustomDomainARecord:
     Type: AWS::Route53::RecordSet
     Properties:
-      HostedZoneName: !Ref HostedZoneName
-      Name: !Sub "${CmsHostname}.{HostedZoneName}"
+      HostedZoneName: !Sub "${HostedZoneName}."
+      Name: !Sub "${CmsHostname}.${HostedZoneName}"
       Type: A
-      TTL: 300
       AliasTarget:
         DNSName: !GetAtt apiGatewayCustomDomainName.RegionalDomainName
         HostedZoneId: !GetAtt apiGatewayCustomDomainName.RegionalHostedZoneId
+
+  # Reference 01: ECS Cluster (Ref: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/quickref-ecs.html)
+  ecsInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: "ECSInternetGateway"
+
+  vpcGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref vpc
+      InternetGatewayId: !Ref ecsInternetGateway
+
+  vpcPublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref vpc
+
+  vpcPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: vpcGatewayAttachment
+    Properties:
+      RouteTableId: !Ref vpcPublicRouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref ecsInternetGateway
+
+  vpcPublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref publicSubnet1
+      RouteTableId: !Ref vpcPublicRouteTable
+
+  vpcPublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref publicSubnet2
+      RouteTableId: !Ref vpcPublicRouteTable
+
+  ecsEip:
+    Type: AWS::EC2::EIP
+
+  ecsNatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt ecsEip.AllocationId
+      SubnetId: !Ref publicSubnet1
+
+  vpcPrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref vpc
+
+  vpcPrivateRoute:
+    Type: AWS::EC2::Route
+    DependsOn: ecsNatGateway
+    Properties:
+      RouteTableId: !Ref vpcPrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref ecsNatGateway
+
+  vpcPrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref privateSubnet1
+      RouteTableId: !Ref vpcPrivateRouteTable
+
+  vpcPrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref privateSubnet2
+      RouteTableId: !Ref vpcPrivateRouteTable
+
+
+  ecsCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: "core-cluster"
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+  
+  ecsAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    DependsOn:
+      - ecsCluster
+      - ec2Role
+    Properties:
+      VPCZoneIdentifier:
+        - !Ref privateSubnet1
+        - !Ref privateSubnet2
+      LaunchTemplate:
+        LaunchTemplateId: !Ref containerInstances
+        Version: !GetAtt containerInstances.LatestVersionNumber
+      MinSize: 1
+      MaxSize: 2
+      DesiredCapacity: 2
+      NewInstancesProtectedFromScaleIn: true
+    UpdatePolicy:
+      AutoScalingReplacingUpdate:
+        WillReplace: "true"
+  
+  containerInstances:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: "asg-launch-template"
+      LaunchTemplateData:
+        ImageId: !Ref EcsAmi
+        InstanceType: "t3.large"
+        IamInstanceProfile:
+          Name: !Ref ec2InstanceProfile
+        SecurityGroupIds:
+          - !Ref ecsContainerHostSecurityGroup
+        # This injected configuration file is how the EC2 instance
+        # knows which ECS cluster on your AWS account it should be joining
+        UserData:
+          Fn::Base64: !Sub |
+           #!/bin/bash -xe
+           echo "ECS_CLUSTER=core-cluster" >> /etc/ecs/ecs.config
+        # Disable IMDSv1, and require IMDSv2
+        MetadataOptions:
+          HttpEndpoint: enabled
+          HttpTokens: required
+  
+  ec2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles: 
+      - !Ref ec2Role 
+  
+  ecsCapacityProvider:
+    Type: AWS::ECS::CapacityProvider
+    Properties:
+      AutoScalingGroupProvider:
+        AutoScalingGroupArn: !Ref ecsAutoScalingGroup
+        ManagedScaling:
+          InstanceWarmupPeriod: 60
+          MinimumScalingStepSize: 1
+          MaximumScalingStepSize: 100
+          Status: ENABLED
+          TargetCapacity: 100
+        ManagedTerminationProtection: ENABLED
+  
+  ecsCapacityProviderAssociation:
+    Type: AWS::ECS::ClusterCapacityProviderAssociations
+    Properties:
+      CapacityProviders:
+        - !Ref ecsCapacityProvider
+      Cluster: !Ref ecsCluster
+      DefaultCapacityProviderStrategy:
+        - Base: 0
+          CapacityProvider: !Ref ecsCapacityProvider
+          Weight: 1
+  
+  ecsContainerHostSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Access to the EC2 hosts that run containers
+      VpcId:
+        Ref: vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: "0.0.0.0/0"  # Allow all outbound traffic
+  
+  ec2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+      Policies:
+        - PolicyName: ECSAdditionalPermissions
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecs:RegisterContainerInstance
+                  - ecs:CreateCluster
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeInstances
+                  - ec2:DescribeSecurityGroups
+                Resource: "*"
+
+  ecsTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+            Action:
+              - sts:AssumeRole
+            Condition:
+              ArnLike:
+                aws:SourceArn: !Sub arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:*
+              StringEquals:
+                aws:SourceAccount: !Sub ${AWS::AccountId}
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  # Unit 12: ECS Task Definition and Service
+  ecsTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Ref ServiceName
+      TaskRoleArn: !GetAtt iamRole.Arn
+      ContainerDefinitions:
+        - Name: !Ref ServiceName
+          Image: !Ref OrchardCoreImage
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Sub "/ecs/${ServiceName}-log-group"
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+          PortMappings:
+            - ContainerPort: 5000
+              HostPort: 80
+              Protocol: tcp
+          Cpu: 256
+          Memory: 1024
+          MemoryReservation: 512
+          Environment:
+            - Name: DatabaseEndpoint
+              Value: !GetAtt cmsDBInstance.Endpoint.Address
+          Essential: true
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - "wget -q --spider http://localhost:5000/health || exit 1"
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 60
+
+  ecsService:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - iamRole
+      - internalNlb
+      - nlbTargetGroup
+      - internalNlbListener
+    Properties:
+      Cluster: !GetAtt ecsCluster.Arn
+      DesiredCount: 1
+      DeploymentConfiguration:
+        MaximumPercent: 100
+        MinimumHealthyPercent: 50
+      LoadBalancers:
+        - ContainerName: !Ref ServiceName
+          ContainerPort: 5000
+          TargetGroupArn: !Ref nlbTargetGroup
+      PlacementStrategies:
+        - Type: spread
+          Field: attribute:ecs.availability-zone
+        - Type: spread
+          Field: instanceId
+      TaskDefinition: !Ref ecsTaskDefinition
+      ServiceName: !Ref ServiceName
+      Role: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS"
+      HealthCheckGracePeriodSeconds: 60
