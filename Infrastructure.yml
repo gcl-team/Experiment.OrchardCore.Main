@@ -1,6 +1,14 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: "Infrastructure for Orchard Core CMS"
 
+# ========================================================================================================================
+# The detail explanation for this template and each of the units below can be found on the blog post:
+# https://cuteprogramming.wordpress.com/2025/03/09/automate-orchard-core-deployment-on-aws-ecs-with-cloudformation/
+# 
+# **WARNING** This template creates services such as EC2 instances, Aurora database, Elastic Load Balancer, etc.
+#             You will be billed for the AWS resources used if you create a stack from this template.
+# ========================================================================================================================
+
 Parameters:
   VpcCIDR:
     Type: String
