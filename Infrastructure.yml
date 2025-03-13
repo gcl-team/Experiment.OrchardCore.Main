@@ -17,7 +17,7 @@ Parameters:
     AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
   ApiGatewayStageName:
     Type: String
-    Default: "production"
+    Default: 'production'
     AllowedValues:
       - production
       - staging
@@ -51,9 +51,9 @@ Parameters:
     Default: ''
     Description: 'Your own Orchard Core image, best if it is hosted in ECR'
   EcsAmi:
-    Description: The Amazon Machine Image ID used for the cluster
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
     Default: /aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id
+    Description: 'The Amazon Machine Image ID used for the cluster'
 
 Resources:
   # Unit 01: IAM Role
