@@ -25,26 +25,31 @@ Parameters:
   ServiceName:
     Type: String
     Default: cld-orchard-core
-    Description: "The service name"
+    Description: 'Your service name'
   CmsDBName:
     Type: String
     Default: orchardcorecmsdb
-    Description: "The name of the database to create"
+    Description: 'The name of the database which will be used by Orchard Core'
   CmsDbMasterUsername:
     Type: String
     Default: orchardcoreroot
+    Description: 'The master username of the database'
   HostedZoneId:
     Type: String
-    Default: Z075010133HV9JBFTKEPX
+    Default: ''
+    Description: 'Your hosted zone id on Route 53'
   HostedZoneName:
     Type: String
-    Default: chunlinprojects.com
+    Default: ''
+    Description: 'Your hosted zone name, aka custom domain name'
   CmsHostname:
     Type: String
     Default: orchardcms
+    Description: 'Orchard Core host name, normally appears as subdomain in your custom domain'
   OrchardCoreImage:
     Type: String
-    Default: 982081087543.dkr.ecr.ap-southeast-5.amazonaws.com/gclteam/orchard-core-cms:latest
+    Default: ''
+    Description: 'Your own Orchard Core image, best if it is hosted in ECR'
   EcsAmi:
     Description: The Amazon Machine Image ID used for the cluster
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
