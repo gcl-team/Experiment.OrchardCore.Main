@@ -12,8 +12,8 @@ Description: "Infrastructure for Orchard Core CMS"
 Parameters:
   VpcCIDR:
     Type: String
-    Description: "VPC CIDR Block"
     Default: 10.0.0.0/16
+    Description: 'VPC CIDR Block'
     AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
   ApiGatewayStageName:
     Type: String
