@@ -19,12 +19,11 @@ RUN apk add --no-cache \
    icu-data-full \
    icu-libs
 
-ENV ASPNETCORE_URLS http://*:5000
-
 WORKDIR /app
 
 COPY --from=builder /app/src/out .
 
-EXPOSE 5000
+ENV ASPNETCORE_URLS=http://+:80
+EXPOSE 80
 
 ENTRYPOINT ["dotnet", "OCBC.HeadlessCMS.dll"]
