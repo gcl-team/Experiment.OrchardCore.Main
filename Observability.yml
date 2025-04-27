@@ -53,12 +53,54 @@ Resources:
         - Key: Stack
           Value: !Ref AWS::StackName
 
-  # Unit 02: EC2 with Grafana
+  # Unit 02: Enabling Grafana to access CloudWatch
+  ec2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+
+      Policies:
+        - PolicyName: EC2MetricsAndLogsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: AllowReadingMetricsFromCloudWatch
+                Effect: Allow
+                Action:
+                  - cloudwatch:ListMetrics
+                  - cloudwatch:GetMetricData
+                Resource: "*"
+              - Sid: AllowReadingLogsFromCloudWatch
+                Effect: Allow
+                Action:
+                  - logs:DescribeLogGroups
+                  - logs:GetLogGroupFields
+                  - logs:StartQuery
+                  - logs:StopQuery
+                  - logs:GetQueryResults
+                  - logs:GetLogEvents
+                Resource: "*"
+
+  ec2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - Ref: ec2InstanceRole
+
+  # Unit 03: EC2 with Grafana
   ec2Instance:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref InstanceType
       ImageId: !Ref Ec2Ami
+      IamInstanceProfile:
+        Ref: ec2InstanceProfile
       NetworkInterfaces:
         - AssociatePublicIpAddress: true
           DeviceIndex: 0
