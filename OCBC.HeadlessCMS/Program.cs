@@ -1,12 +1,11 @@
-using System.Diagnostics;
 using System.Globalization;
 using Amazon.CloudWatch;
 using Microsoft.AspNetCore.Localization;
+using OCBC.HeadlessCMS.Models;
 using OCBC.HeadlessCMS.Services;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using OrchardCore.Media;
-using OrchardCore.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -74,6 +73,10 @@ builder.Services.Configure<RequestLocalizationOptions>(options =>
     options.SupportedCultures = supportedCultures;
     options.SupportedUICultures = supportedCultures;
 });
+
+builder.Services.Configure<MetricsOptions>(builder.Configuration.GetSection("MetricsOptions"));
+builder.Services.AddSingleton<MetricsPublisher>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<MetricsPublisher>());
 
 builder.Services.AddLogging(options =>
 {
