@@ -1,30 +1,21 @@
 using System.Diagnostics;
 using System.Text.Json;
-using System.Threading.Tasks;
 using Amazon.CloudWatch;
 using Amazon.CloudWatch.Model;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
+using OCBC.HeadlessCMS.Services;
 
-public class EndpointStatisticsMiddleware
+public class EndpointStatisticsMiddleware(
+    RequestDelegate next, 
+    ILogger<EndpointStatisticsMiddleware> logger, 
+    IAmazonCloudWatch cloudWatch, 
+    MetricsPublisher metricsPublisher)
 {
-    private readonly RequestDelegate _next;
-    private readonly ILogger<EndpointStatisticsMiddleware> _logger;
-    private readonly IAmazonCloudWatch _cloudWatch;
-
-    public EndpointStatisticsMiddleware(RequestDelegate next, ILogger<EndpointStatisticsMiddleware> logger, IAmazonCloudWatch cloudWatch)
-    {
-        _next = next;
-        _logger = logger;
-        _cloudWatch = cloudWatch;
-    }
-
     public async Task InvokeAsync(HttpContext httpContext)
     {
         var stopwatch = Stopwatch.StartNew();
 
         // Call the next middleware in the pipeline
-        await _next(httpContext);
+        await next(httpContext);
 
         stopwatch.Stop();
 
@@ -35,10 +26,26 @@ public class EndpointStatisticsMiddleware
         PutResponseTimeEmfData(endpointPath, responseTimeMs);
 
         // Track the response status code
-        if (httpContext.Response.StatusCode / 100 == 2)         await PutCustomMetricData(endpointPath, "Http2xxCount", 1);
-        else if (httpContext.Response.StatusCode / 100 == 3)    await PutCustomMetricData(endpointPath, "Http3xxCount", 1);
-        else if (httpContext.Response.StatusCode / 100 == 4)    await PutCustomMetricData(endpointPath, "Http4xxCount", 1);
-        else if (httpContext.Response.StatusCode / 100 == 5)    await PutCustomMetricData(endpointPath, "Http5xxCount", 1);
+        // if (httpContext.Response.StatusCode / 100 == 2)         await PutCustomMetricDataAsync(endpointPath, "Http2xxCount", 1);
+        // else if (httpContext.Response.StatusCode / 100 == 3)    await PutCustomMetricDataAsync(endpointPath, "Http3xxCount", 1);
+        // else if (httpContext.Response.StatusCode / 100 == 4)    await PutCustomMetricDataAsync(endpointPath, "Http4xxCount", 1);
+        // else if (httpContext.Response.StatusCode / 100 == 5)    await PutCustomMetricDataAsync(endpointPath, "Http5xxCount", 1);
+        
+        switch (httpContext.Response.StatusCode / 100)
+        {
+            case 2:
+                PutCustomMetricDataWithMetricsPublisher(endpointPath, "Http2xxCount", 1);
+                break;
+            case 3:
+                PutCustomMetricDataWithMetricsPublisher(endpointPath, "Http3xxCount", 1);
+                break;
+            case 4:
+                PutCustomMetricDataWithMetricsPublisher(endpointPath, "Http4xxCount", 1);
+                break;
+            case 5:
+                PutCustomMetricDataWithMetricsPublisher(endpointPath, "Http5xxCount", 1);
+                break;
+        }
     }
 
     private void PutResponseTimeEmfData(string endpointPath, long responseTimeMs)
@@ -68,10 +75,10 @@ public class EndpointStatisticsMiddleware
 
         // Log it in the required format
         var emfJson = JsonSerializer.Serialize(emfLog);
-        _logger.LogInformation(emfJson);
+        logger.LogInformation(emfJson);
     }
 
-    private async Task PutCustomMetricData(string endpointPath, string metricName, double value)
+    private async Task PutCustomMetricDataAsync(string endpointPath, string metricName, double value)
     {
         var metricData = new MetricDatum
         {
@@ -94,6 +101,11 @@ public class EndpointStatisticsMiddleware
             MetricData = new List<MetricDatum> { metricData }
         };
 
-        await _cloudWatch.PutMetricDataAsync(request);
+        await cloudWatch.PutMetricDataAsync(request);
+    }
+    
+    private void PutCustomMetricDataWithMetricsPublisher(string endpointPath, string metricName, double value)
+    {
+        metricsPublisher.TrackMetric(metricName, value, endpointPath);
     }
 }
