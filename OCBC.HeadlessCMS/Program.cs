@@ -1,6 +1,7 @@
 using System.Globalization;
 using Amazon.CloudWatch;
 using Microsoft.AspNetCore.Localization;
+using OCBC.HeadlessCMS.BackgroundServices;
 using OCBC.HeadlessCMS.Models;
 using OCBC.HeadlessCMS.Services;
 using OpenTelemetry.Resources;
