@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using Amazon.CloudWatch;
 using Amazon.CloudWatch.Model;
-using OCBC.HeadlessCMS.Services;
+using OCBC.HeadlessCMS.BackgroundServices;
 
 public class EndpointStatisticsMiddleware(
     RequestDelegate next, 
