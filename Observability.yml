@@ -44,11 +44,11 @@ Resources:
         - IpProtocol: tcp
           FromPort: 4317
           ToPort: 4317
-          SourceSecurityGroupId: {"Fn::ImportValue": !Sub "${CoreNetworkStackName}-${AWS::Region}-ecsContainerHostSecurityGroupId"}
+          CidrIp: 0.0.0.0/0  # Caution: Tempo open to public, restrict as needed
         - IpProtocol: tcp
           FromPort: 4318
           ToPort: 4318
-          SourceSecurityGroupId: {"Fn::ImportValue": !Sub "${CoreNetworkStackName}-${AWS::Region}-ecsContainerHostSecurityGroupId"}
+          CidrIp: 0.0.0.0/0  # Caution: Tempo open to public, restrict as needed
       Tags:
         - Key: Stack
           Value: !Ref AWS::StackName
